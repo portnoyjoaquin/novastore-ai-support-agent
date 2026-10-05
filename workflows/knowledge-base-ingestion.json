@@ -1,0 +1,202 @@
+{
+  "name": "RAG Knowledge Base - Document Ingestion",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b2cff2b2-e7bc-4876-bbca-50a11875af5d",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/files/NovaStore_Customer_Support_Knowledge_Base.pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a3cfac38-c301-4df9-8971-f17310f048eb",
+      "name": "Read Knowledge Base PDF"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ff13de9b-9227-4299-8dff-77a87994a90d",
+      "name": "Extract PDF Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst text = items[0].json.text;\n\nif (!text) {\n  throw new Error('No se encontró el campo \"text\" del PDF.');\n}\n\n// Configuración del chunking\nconst chunkSize = 1000;\nconst overlap = 200;\n\nconst chunks = [];\n\nlet start = 0;\nlet chunkId = 1;\n\nwhile (start < text.length) {\n  let end = Math.min(start + chunkSize, text.length);\n\n  // Intentar terminar el chunk en un corte natural\n  if (end < text.length) {\n    const section = text.slice(start, end);\n\n    const lastParagraph = section.lastIndexOf('\\n\\n');\n    const lastSentence = section.lastIndexOf('. ');\n\n    if (lastParagraph > chunkSize * 0.6) {\n      end = start + lastParagraph + 2;\n    } else if (lastSentence > chunkSize * 0.6) {\n      end = start + lastSentence + 1;\n    }\n  }\n\n  const chunkText = text\n    .slice(start, end)\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  if (chunkText.length > 0) {\n    chunks.push({\n      json: {\n        text: chunkText,\n        chunk_id: chunkId,\n        source: 'NovaStore_Customer_Support_Knowledge_Base.pdf',\n        document: 'NovaStore Customer Support Knowledge Base',\n        version: '1.0'\n      }\n    });\n\n    chunkId++;\n  }\n\n  if (end >= text.length) break;\n\n  start = Math.max(end - overlap, start + 1);\n}\n\nreturn chunks;;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "53c51496-2ff1-4883-95c0-6769ea0f6ef4",
+      "name": "Chunk Document"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": \"={{ $json.text }}\"\n      }\n    ]\n  },\n  \"output_dimensionality\": 768\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        0
+      ],
+      "id": "d71eb787-1be7-4ccb-b42c-9bc06076b709",
+      "name": "Generate Document Embeddings",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XEw44GIcIgjSzoGn",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://novastore-support-jkivd96.svc.aped-4627-b74a.pinecone.io/vectors/upsert",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"vectors\": [\n    {\n      \"id\": \"={{ 'novastore-chunk-' + $('Chunk Document').item.json.chunk_id }}\",\n      \"values\": {{ JSON.stringify($json.embedding.values) }},\n      \"metadata\": {\n        \"text\": \"={{ $('Chunk Document').item.json.text }}\",\n        \"chunk_id\": {{ $('Chunk Document').item.json.chunk_id }},\n        \"source\": \"={{ $('Chunk Document').item.json.source }}\",\n        \"document\": \"={{ $('Chunk Document').item.json.document }}\",\n        \"version\": \"={{ $('Chunk Document').item.json.version }}\"\n      }\n    }\n  ],\n  \"namespace\": \"novastore-support\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "135a33fe-dfce-4890-a32c-2789f113d363",
+      "name": "Pinecone Upsert",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JaRlf5iyzyMHMi92",
+          "name": "Header Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Knowledge Base PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Knowledge Base PDF": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Chunk Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Document": {
+      "main": [
+        [
+          {
+            "node": "Generate Document Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Document Embeddings": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Upsert": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8490feaa-720f-420d-9829-54430a093e9a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1178630db9a35500cd19a16f80ab0594d4b232ab594e7b9c6ff41fcf7c974dbe"
+  },
+  "id": "eqAtlDAjd0NC9ROu",
+  "tags": []
+}

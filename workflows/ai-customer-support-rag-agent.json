@@ -1,0 +1,327 @@
+{
+  "name": "AI Customer Support RAG Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "29f75c5b-e606-4cb5-9b72-fbe3da20d1e7",
+      "name": "When chat message received",
+      "webhookId": "6a1895f6-d584-41e7-82c2-0e55cfbf1ded"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": {{ JSON.stringify($json.user_message.trim()) }}\n      }\n    ]\n  },\n  \"output_dimensionality\": 768\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "e1755001-719c-46de-b3e7-25684f57f34d",
+      "name": "Gemini - Embed Query",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XEw44GIcIgjSzoGn",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Pinecone puede devolver matches directamente\n// o dentro de results, según la respuesta.\nconst matches = data.matches || data.results?.matches || [];\n\nif (matches.length === 0) {\n  return [{\n    json: {\n      rag_context: 'No relevant information was found in the knowledge base.',\n      retrieved_chunks: 0\n    }\n  }];\n}\n\nconst context = matches\n  .filter(match => match.metadata?.text)\n  .map((match, index) => {\n    return `[Source ${index + 1} | Score: ${match.score?.toFixed(3) ?? 'N/A'}]\n${match.metadata.text}`;\n  })\n  .join('\\n\\n---\\n\\n');\n\nreturn [{\n  json: {\n    rag_context: context,\n    retrieved_chunks: matches.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "83bbbbb8-8fe5-4fa0-85e5-46b7a2097423",
+      "name": "Build RAG Context"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are NovaStore's AI Customer Support Agent.\n\nCUSTOMER QUESTION:\n{{ $('Normalize Input').item.json.user_message }}\n\nKNOWLEDGE BASE CONTEXT:\n{{ $json.rag_context }}\n\nYou have access to two sources of information:\n\n1. KNOWLEDGE BASE CONTEXT\nUse it for general NovaStore policies such as:\n- returns\n- refunds\n- shipping policies\n- warranties\n- payments\n- cancellations\n- general support information\n\n2. ORDER STATUS TOOL\nUse the NovaStore Order Status tool for ANY question about a specific order, including:\n- current order status\n- tracking\n- shipment location\n- estimated delivery\n- carrier\n- whether a specific order has shipped\n\nIMPORTANT TOOL RULE:\nIf the customer provides an order ID such as NS-10452 and asks about that order, you MUST call the Order Status Tool.\nDo NOT answer a specific order-status question using the knowledge base alone.\n\nWhen calling the tool, extract the order ID from the customer's message and send it as order_id.\n\nAfter receiving the tool result, answer the customer using the returned order information.\n\nGENERAL RULES:\n- Never invent information.\n- Use the knowledge base as the source of truth for policy questions.\n- Use the Order Status Tool as the source of truth for specific order-status questions.\n- If the knowledge base does not contain enough information for a policy question, say you do not have enough information.\n- If the Order Status Tool returns that an order was not found, tell the customer that the order could not be found.\n- Respond in the same language as the customer.\n- Keep responses clear and concise.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "16b94fab-97e2-4b57-a6a4-c1ef11b45806",
+      "name": "AI SUPPORT AGENT",
+      "retryOnFail": true,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        208
+      ],
+      "id": "b59f2c59-fea9-443e-9243-c80cbf308993",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "KQC3KzQu9KIXzIR0",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Use this tool to retrieve the current status of a NovaStore order.\n\nCall this tool whenever the customer asks about the status, shipping, tracking, delivery, or location of a specific order.\n\nExtract the order ID from the customer's message and pass it as order_id.\n\nExample:\nCustomer: \"Where is my order NS-10452?\"\norder_id: \"NS-10452\"\n\nDo not use the knowledge base to answer live order-status questions. Always use this tool when an order ID is provided.",
+        "workflowId": {
+          "__rl": true,
+          "value": "QUv0sjfKpinIeqkQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/QUv0sjfKpinIeqkQ",
+          "cachedResultName": "NovaStore - Order Status API"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('order_id', `The NovaStore order ID provided by the customer, for example NS-10452.`, 'string') }}"
+          },
+          "matchingColumns": [
+            "order_id"
+          ],
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        192
+      ],
+      "id": "f62e9aa2-6d9a-4388-8d0d-a76bb589f49f",
+      "name": "Order Status Tool"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://novastore-support-jkivd96.svc.aped-4627-b74a.pinecone.io/query",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"vector\": {{ JSON.stringify($json.embedding.values) }},\n  \"topK\": 3,\n  \"includeMetadata\": true,\n  \"includeValues\": false,\n  \"namespace\": \"novastore-support\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d177385e-e17b-46b4-9385-8d1565df47ac",
+      "name": "Pinecone Semantic Search",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "JaRlf5iyzyMHMi92",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "deec9853-5bd4-4b6b-9ddc-b211da3f6609",
+              "name": "user_message",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "f627cb01-c0c3-4ae7-a650-c13ee1700b57",
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "d1513157-2569-4582-b3c4-259637eaba15",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Normalize Input').item.json.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1168,
+        208
+      ],
+      "id": "b290ccd2-055d-4733-ae0d-f172a62def87",
+      "name": "Conversation Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Embed Query": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Semantic Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build RAG Context": {
+      "main": [
+        [
+          {
+            "node": "AI SUPPORT AGENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI SUPPORT AGENT",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Status Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI SUPPORT AGENT",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Semantic Search": {
+      "main": [
+        [
+          {
+            "node": "Build RAG Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Embed Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI SUPPORT AGENT",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7ec785db-2367-43cf-bf69-70fbc51b40bf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1178630db9a35500cd19a16f80ab0594d4b232ab594e7b9c6ff41fcf7c974dbe"
+  },
+  "id": "lxHPRRPrUAsTyKTn",
+  "tags": []
+}

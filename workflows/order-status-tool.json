@@ -1,0 +1,62 @@
+{
+  "name": "NovaStore - Order Status API",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "order_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "781b3360-d378-42c1-9dc5-75a9578773fd",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const orderId = $json.order_id?.trim().toUpperCase();\n\nconst orders = {\n  \"NS-10452\": {\n    status: \"Shipped\",\n    carrier: \"DHL\",\n    tracking_number: \"DHL-84729301\",\n    estimated_delivery: \"2026-10-08\"\n  },\n\n  \"NS-20891\": {\n    status: \"Processing\",\n    carrier: null,\n    tracking_number: null,\n    estimated_delivery: \"2026-10-10\"\n  },\n\n  \"NS-33721\": {\n    status: \"Delivered\",\n    carrier: \"FedEx\",\n    tracking_number: \"FDX-58210493\",\n    estimated_delivery: \"2026-10-03\"\n  }\n};\n\nconst order = orders[orderId];\n\nif (!order) {\n  return {\n    json: {\n      success: false,\n      order_id: orderId,\n      message: \"Order not found.\"\n    }\n  };\n}\n\nreturn {\n  json: {\n    success: true,\n    order_id: orderId,\n    ...order\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b909c7a1-43fa-4520-a77f-c2bddd8d6ae7",
+      "name": "Lookup Order"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Lookup Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "89b7b075-d42f-488b-86ea-08f666fd5f16",
+  "meta": {
+    "instanceId": "1178630db9a35500cd19a16f80ab0594d4b232ab594e7b9c6ff41fcf7c974dbe"
+  },
+  "id": "QUv0sjfKpinIeqkQ",
+  "tags": []
+}
