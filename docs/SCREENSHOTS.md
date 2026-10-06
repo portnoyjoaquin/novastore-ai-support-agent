@@ -1,3 +1,3 @@
-<img width="1001" height="421" alt="Captura de pantalla 2026-10-05 205918" src="https://github.com/user-attachments/assets/798eb55c-f91e-4eb6-bb5e-9550538f646b" />
-<img width="1324" height="430" alt="Captura de pantalla 2026-10-05 205912" src="https://github.com/user-attachments/assets/ef9c0af6-18b5-40b5-944f-bc33022a9916" />
-<img width="1244" height="457" alt="Captura de pantalla 2026-10-05 205843" src="https://github.com/user-attachments/assets/eb21a9ea-b0eb-4863-ba36-3b8766b055c8" />
+<img width="1244" height="457" alt="main-rag-agent" src="https://github.com/user-attachments/assets/3cfc035f-1763-42fa-a6f4-84bf78001c29" />
+<img width="1324" height="430" alt="knowledge-base-ingestion" src="https://github.com/user-attachments/assets/a3379802-a7c4-450e-8e1b-6297954944c6" />
+<img width="1001" height="421" alt="order-status-tool" src="https://github.com/user-attachments/assets/a85ed80b-1a80-4cf9-8436-1daab99a859e" />
