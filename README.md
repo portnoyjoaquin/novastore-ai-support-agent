@@ -30,23 +30,12 @@ flowchart LR
 ```
 ## Workflow Screenshots
 
-### Main AI Support Agent
+![Main AI Support Agent](main-rag-agent.png)
 
-The main workflow handles user input, generates semantic embeddings, retrieves relevant knowledge from Pinecone, builds the RAG context, and sends it to an AI Agent with conversational memory and tool-calling capabilities.
+![Knowledge Base Ingestion](knowledge-base-ingestion.png)
 
-![Main AI Support Agent](docs/screenshots/main-rag-agent.png)
+![Order Status Tool](order-status-tool.png)
 
-### Knowledge Base Ingestion Pipeline
-
-This workflow processes the NovaStore knowledge base, extracts the PDF content, splits it into overlapping chunks, generates 768-dimensional embeddings with Gemini, and indexes them in Pinecone.
-
-![Knowledge Base Ingestion](docs/screenshots/knowledge-base-ingestion.png)
-
-### Order Status Tool
-
-The AI Agent can call a dedicated n8n sub-workflow to retrieve live-style order information when a customer provides an order ID.
-
-![Order Status Tool](docs/screenshots/order-status-tool.png)
 ## Core features
 
 - **RAG knowledge retrieval** for returns, refunds, shipping, warranty, payments, cancellations, and support policies.
