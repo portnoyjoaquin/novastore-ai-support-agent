@@ -30,11 +30,11 @@ flowchart LR
 ```
 ## Workflow Screenshots
 
-![Main AI Support Agent](main-rag-agent.png)
+![Main AI Support Agent](docs/screenshots/main-rag-agent.png)
 
-![Knowledge Base Ingestion](knowledge-base-ingestion.png)
+![Knowledge Base Ingestion](docs/screenshots/knowledge-base-ingestion.png)
 
-![Order Status Tool](order-status-tool.png)
+![Order Status Tool](docs/screenshots/order-status-tool.png)
 
 ## Core features
 
